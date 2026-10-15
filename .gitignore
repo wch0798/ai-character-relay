@@ -1,0 +1,4 @@
+/target
+/web/target
+.env
+/aic-relay

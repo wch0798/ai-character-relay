@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Character 중계 서버</title>
+<style>
+  :root { --bg:#0b0f19; --card:#141a29; --line:#232c42; --text:#e7ecf5; --muted:#8d97ad; --accent:#6c9cff; --ok:#3ecf8e; --bad:#ff6b6b; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; background: var(--bg); color: var(--text); }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 20px 60px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 0 0 12px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-top: 16px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .stat { background: #0f1422; border: 1px solid var(--line); border-radius: 12px; padding: 12px; }
+  .stat b { display: block; font-size: 22px; }
+  table { width: 100%; border-collapse: collapse; }
+  td, th { text-align: left; padding: 10px 6px; border-top: 1px solid var(--line); vertical-align: middle; }
+  th { color: var(--muted); font-weight: 500; font-size: 13px; border-top: none; }
+  code { font: 13px ui-monospace, Menlo, monospace; background: #0f1422; padding: 2px 6px; border-radius: 6px; word-break: break-all; }
+  button { font: inherit; font-size: 14px; border-radius: 10px; border: 1px solid var(--line); background: #1b2337; color: var(--text); padding: 6px 12px; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #0b0f19; font-weight: 600; }
+  button.danger.armed { background: var(--bad); border-color: var(--bad); color: #0b0f19; }
+  input { font: inherit; background: #0f1422; color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px; flex: 1; min-width: 0; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .notice { padding: 10px 12px; border-radius: 10px; background: rgba(62,207,142,0.12); border: 1px solid rgba(62,207,142,0.4); margin-top: 12px; }
+  .notice.bad { background: rgba(255,107,107,0.12); border-color: rgba(255,107,107,0.4); }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); margin-right: 6px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>🌍 AI Character 중계 서버</h1>
+  <p class="muted" id="sub">불러오는 중…</p>
+
+  <section class="card">
+    <h2>지금 상태</h2>
+    <div class="stats" id="stats"></div>
+    <p class="muted">대화 내용은 두 컴퓨터 사이에서 암호화되어 이 서버는 볼 수 없습니다. 이 화면은 10초마다 새로 고칩니다.</p>
+  </section>
+
+  <section class="card">
+    <h2>연결 경로</h2>
+    <p class="muted">두 컴퓨터가 서로 바로 연결되면(직접) 이 서버는 연결만 도와주고 빠집니다. 공유기·회사망 때문에 바로 못 붙으면 이 서버를 거쳐서(중계) 전달합니다. 앱이 연결할 때마다 어느 쪽이었는지 알려 줍니다.</p>
+    <div class="stats" id="paths"></div>
+  </section>
+
+  <section class="card">
+    <h2>막힌 주소</h2>
+    <p class="muted" id="guardRule"></p>
+    <div id="proxyWarning"></div>
+    <table>
+      <thead><tr><th>주소</th><th>이유</th><th>남은 시간</th><th></th></tr></thead>
+      <tbody id="blocked"></tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>접속 암호</h2>
+    <p class="muted">암호를 아는 기기만 이 서버로 연결할 수 있습니다. 가족·장소별로 따로 만들면, 하나만 지워도 나머지는 그대로 쓸 수 있습니다. 지운 암호로 이미 연결된 기기는 다시 연결할 때부터 막힙니다.</p>
+    <table>
+      <thead><tr><th>이름</th><th>암호</th><th>지금 연결</th><th>만든 날</th><th></th></tr></thead>
+      <tbody id="tokens"></tbody>
+    </table>
+    <div class="row" style="margin-top:12px">
+      <input id="name" placeholder="새 암호 이름 (예: 회사, 부모님 집)" maxlength="40">
+      <button class="primary" id="add">암호 만들기</button>
+    </div>
+    <div id="msg"></div>
+  </section>
+
+  <section class="card">
+    <h2>앱에 넣는 방법</h2>
+    <p>AI를 빌려주는 컴퓨터에서 <b>처음 설정 (웹) → 🌐 다른 컴퓨터 AI → 밖에서도 쓰기: 중계 서버</b>에</p>
+    <p>중계 서버 주소 <code id="domain"></code> 와 위의 접속 암호 하나를 넣고 <b>저장 → 연결 확인</b>을 누르세요.</p>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const el = (tag, props = {}, ...kids) => { const n = Object.assign(document.createElement(tag), props); n.append(...kids); return n; };
+const shown = new Set();
+
+async function api(path, body) {
+  const res = await fetch(path, body ? { method: "POST", headers: { "Content-Type": "application/json", "X-AIC-Admin": "1" }, body: JSON.stringify(body) } : {});
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || res.statusText);
+  return data;
+}
+
+function uptime(s) {
+  const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+  return d ? `${d}일 ${h}시간` : h ? `${h}시간 ${m}분` : `${m}분`;
+}
+
+function message(text, bad) {
+  $("msg").replaceChildren(el("div", { className: bad ? "notice bad" : "notice", textContent: text }));
+}
+
+function confirmButton(label, armed, action) {
+  const b = el("button", { className: "danger", textContent: label });
+  let timer = null;
+  b.onclick = async () => {
+    if (!b.classList.contains("armed")) {
+      b.classList.add("armed"); b.textContent = armed;
+      timer = setTimeout(() => { b.classList.remove("armed"); b.textContent = label; }, 4000);
+      return;
+    }
+    clearTimeout(timer);
+    await action();
+  };
+  return b;
+}
+
+async function load() {
+  try {
+    const [status, list] = await Promise.all([api("api/status"), api("api/tokens")]);
+    $("sub").replaceChildren(el("span", { className: "dot" }), `${status.domain} · 가동 ${uptime(status.uptimeSecs)} · v${status.version}`);
+    $("domain").textContent = status.domain;
+    const stat = (label, value) => el("div", { className: "stat" }, el("span", { className: "muted", textContent: label }), el("b", { textContent: value }));
+    $("stats").replaceChildren(stat("지금 연결된 기기", status.liveDevices), stat("연결 수", status.liveConnections), stat("허용한 연결 (누적)", status.accepted), stat("거절한 연결 (누적)", status.denied));
+    const paths = status.hub.paths, day = paths.day;
+    const ratio = (d, r) => (d + r ? `${Math.round((d * 100) / (d + r))}%` : "-");
+    $("paths").replaceChildren(
+      stat("직접 연결 비율 (24시간)", ratio(day.direct, day.relayed)),
+      stat("직접 / 중계 (24시간)", `${day.direct} / ${day.relayed}`),
+      stat("직접 / 중계 (누적)", `${paths.direct} / ${paths.relayed}`),
+      stat("6자리 코드 대기 / 사용", `${status.hub.codesWaiting} / ${status.hub.codesUsed}`),
+    );
+    const guard = status.guard;
+    $("guardRule").textContent = `틀린 암호·없는 코드를 ${guard.windowMins}분 안에 ${guard.limit}번 넘게 보낸 주소는 ${guard.blockMins}분 동안 막습니다. 서버를 다시 켜도 그대로 유지됩니다. (누적 ${guard.totalBlocks}번)`;
+    $("proxyWarning").replaceChildren(...(guard.sharedAddress || guard.proxyHeaders ? [el("div", { className: "notice bad", textContent: "⚠ 이 서버 앞에 프록시(Cloudflare 주황 구름, nginx 등)나 Docker 포트 중계가 있어 접속자 주소가 모두 같게 보입니다. 이 상태에서는 암호를 계속 틀리는 주소를 막을 수 없고(모두가 함께 막히지 않도록 일부러 세지 않습니다), HTTPS 인증서 발급도 실패할 수 있습니다. DNS를 'DNS만'(회색 구름)으로 바꾸고, Docker는 network_mode: host로 실행하세요." })] : []));
+    const reasons = { token: "틀린 접속 암호", code: "없는 6자리 코드", admin: "틀린 관리자 암호" };
+    $("blocked").replaceChildren(...guard.blocked.map((b) => {
+      const unblock = confirmButton("풀기", "한 번 더 누르면 풂", async () => {
+        try { await api("api/unblock", { ip: b.ip }); message(`${b.ip} 를 풀었습니다.`); load(); } catch (e) { message(e.message, true); }
+      });
+      return el("tr", {}, el("td", {}, el("code", { textContent: b.ip })), el("td", { textContent: reasons[b.reason] || b.reason }), el("td", { textContent: `${Math.ceil(b.remainingSecs / 60)}분` }), el("td", {}, unblock));
+    }));
+    if (!guard.blocked.length) $("blocked").replaceChildren(el("tr", {}, el("td", { colSpan: 4, className: "muted", textContent: "막힌 주소가 없습니다." })));
+    const live = Object.fromEntries(status.tokens.map((t) => [t.name, t.live]));
+    $("tokens").replaceChildren(...list.tokens.map((t) => {
+      const code = el("code", { textContent: shown.has(t.name) ? t.token : "••••••••" + t.token.slice(-4) });
+      const toggle = el("button", { textContent: shown.has(t.name) ? "숨기기" : "보기" });
+      toggle.onclick = () => { shown.has(t.name) ? shown.delete(t.name) : shown.add(t.name); load(); };
+      const copy = el("button", { textContent: "복사" });
+      copy.onclick = () => navigator.clipboard.writeText(t.token).then(() => message(`'${t.name}' 암호를 복사했습니다.`));
+      const remove = confirmButton("지우기", "한 번 더 누르면 지움", async () => {
+        try { await api("api/tokens/remove", { name: t.name }); message(`'${t.name}' 암호를 지웠습니다.`); load(); } catch (e) { message(e.message, true); }
+      });
+      return el("tr", {}, el("td", { textContent: t.name }), el("td", {}, code), el("td", { textContent: `${live[t.name] || 0}` }), el("td", { className: "muted", textContent: t.created ? new Date(t.created * 1000).toLocaleDateString("ko-KR") : "" }), el("td", {}, el("div", { className: "row" }, toggle, copy, remove)));
+    }));
+    if (!list.tokens.length) $("tokens").replaceChildren(el("tr", {}, el("td", { colSpan: 5, className: "muted", textContent: "접속 암호가 없습니다. 아래에서 하나 만드세요. 암호가 없으면 아무도 연결할 수 없습니다." })));
+  } catch (e) {
+    $("sub").textContent = `불러오지 못했습니다: ${e.message}`;
+  }
+}
+
+$("add").onclick = async () => {
+  try {
+    const { token } = await api("api/tokens", { name: $("name").value });
+    $("name").value = "";
+    shown.add(token.name);
+    message(`'${token.name}' 암호를 만들었습니다. 앱에 넣으세요: ${token.token}`);
+    load();
+  } catch (e) { message(e.message, true); }
+};
+
+load();
+setInterval(() => { if (!document.hidden) load(); }, 10000);
+</script>
+</body>
+</html>

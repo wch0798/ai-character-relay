@@ -1,0 +1,23 @@
+[Unit]
+Description=AI Character relay server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=aic-relay
+Group=aic-relay
+ExecStart=/usr/local/bin/aic-relay run --config /etc/aic-relay/config.toml
+WorkingDirectory=/var/lib/aic-relay
+Restart=always
+RestartSec=5
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/aic-relay
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

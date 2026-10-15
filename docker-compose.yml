@@ -1,0 +1,17 @@
+# 사용법: .env.example 을 .env 로 복사해 값을 채운 뒤 `docker compose up -d --build`
+# 첫 접속 암호와 관리자 암호: `docker compose logs relay | head`
+#
+# network_mode: host 를 쓰는 이유: Docker 포트 중계를 거치면 접속자 주소가 모두 Docker 내부 주소로
+# 보여서 암호를 계속 틀리는 주소를 막을 수 없습니다. 서버가 80/443(TCP), 7842(UDP)를 직접 엽니다.
+# 관리 화면(7843)은 127.0.0.1 에만 열리므로 SSH 터널로 들어가세요. (Linux 서버 전용)
+services:
+  relay:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    network_mode: host
+    volumes:
+      - relay-data:/data
+
+volumes:
+  relay-data:
